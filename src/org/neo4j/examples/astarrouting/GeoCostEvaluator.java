@@ -33,10 +33,10 @@ public class GeoCostEvaluator implements EstimateEvaluator<Double>
 
     static Double distance( final Node point1, final Node point2 )
     {
-        return distance( (Double) point1.getProperty( Waypoint.LATITUDE ),
-                (Double) point1.getProperty( Waypoint.LONGITUDE ),
-                (Double) point2.getProperty( Waypoint.LATITUDE ),
-                (Double) point2.getProperty( Waypoint.LONGITUDE ) );
+        return distance( (Double) point1.getProperty( RailwayStation.LATITUDE ),
+                (Double) point1.getProperty( RailwayStation.LONGITUDE ),
+                (Double) point2.getProperty( RailwayStation.LATITUDE ),
+                (Double) point2.getProperty( RailwayStation.LONGITUDE ) );
     }
 
     static double distance( double latitude1, double longitude1,

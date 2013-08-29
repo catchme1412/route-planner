@@ -19,6 +19,8 @@
  */
 package org.neo4j.examples.astarrouting;
 
+import java.util.Iterator;
+
 import org.neo4j.graphalgo.CommonEvaluators;
 import org.neo4j.graphalgo.CostEvaluator;
 import org.neo4j.graphalgo.EstimateEvaluator;
@@ -36,8 +38,9 @@ import org.neo4j.kernel.Traversal;
 
 public class AStarRouting {
 	private static final EstimateEvaluator<Double> estimateEval = CommonEvaluators.geoEstimateEvaluator(
-			Waypoint.LATITUDE, Waypoint.LONGITUDE);
-	private static final CostEvaluator<Double> costEval = CommonEvaluators.doubleCostEvaluator(Waypoint.COST);
+			RailwayStation.LATITUDE, RailwayStation.LONGITUDE);
+	// TODO create a custom cost evaluator
+	private static final CostEvaluator<Double> costEval = CommonEvaluators.doubleCostEvaluator(RailwayStation.COST);
 
 	public static void main(final String[] args) {
 		GraphDatabaseService graphDb = new EmbeddedGraphDatabase("target/neo4j-db");
@@ -48,33 +51,62 @@ public class AStarRouting {
 		}
 	}
 
+	/**
+	 * Creating the graph
+	 * 
+	 * @param graphDb
+	 */
 	private static void routing(final GraphDatabaseService graphDb) {
 		Transaction tx = graphDb.beginTx();
-		Waypoint NYC, KAN, SFE, SEA, SF;
+		RailwayStation BLR, SALEM, CHENNAI, DEL, SF;
 		try {
-			NYC = new Waypoint(graphDb, "New York", "New York");
-			KAN = new Waypoint(graphDb, "Kansas City", "Kansas");
-			SFE = new Waypoint(graphDb, "Santa Fe", "New Mexico");
-			SEA = new Waypoint(graphDb, "Seattle", "Washington");
-			SF = new Waypoint(graphDb, "San Fransisco", "CA");
-			NYC.createRoadTo(KAN);
-			NYC.createRoadTo(SEA);
-			SEA.createRoadTo(SF);
-			KAN.createRoadTo(SFE);
-			SFE.createRoadTo(SF);
+			BLR = new RailwayStation(graphDb, "Bangalore", "Karnataka");
+			SALEM = new RailwayStation(graphDb, "Salem", "TamilNadu");
+			CHENNAI = new RailwayStation(graphDb, "Chennai", "TamilNadu");
+			DEL = new RailwayStation(graphDb, "Delhi", "Delhi");
+			// SF = new RailwayStation(graphDb, "San Fransisco", "CA");
+			BLR.createRailRouteTo(SALEM);
+			BLR.createRailRouteTo(CHENNAI);
+			// SEA.createRailRouteTo(SF);
+			SALEM.createRailRouteTo(CHENNAI);
+			CHENNAI.createRailRouteTo(DEL);
+			DEL.createRailRouteTo(BLR);
 			tx.success();
 		} finally {
 			tx.finish();
 		}
 		tx = graphDb.beginTx();
 		try {
-			Expander relExpander = Traversal.expanderForTypes(RelationshipTypes.ROAD, Direction.BOTH);
-			relExpander.add(RelationshipTypes.ROAD, Direction.BOTH);
+			Expander relExpander = Traversal.expanderForTypes(RelationshipTypes.RAIL_ROUTE, Direction.BOTH);
+			relExpander.add(RelationshipTypes.RAIL_ROUTE, Direction.BOTH);
 			PathFinder<WeightedPath> sp = GraphAlgoFactory.aStar(relExpander, costEval, estimateEval);
-			Path path = sp.findSinglePath(NYC.getUnderlyingNode(), SF.getUnderlyingNode());
+			Path path = sp.findSinglePath(BLR.getUnderlyingNode(), CHENNAI.getUnderlyingNode());
+			System.out.println("SHORTEST PATH IS GIVEN BELOW:");
 			for (Node node : path.nodes()) {
-				System.out.println(node.getProperty(Waypoint.NAME));
+				System.out.print("=>" + node.getProperty(RailwayStation.NAME));
 			}
+
+			Iterable<WeightedPath> allPaths = sp.findAllPaths(BLR.getUnderlyingNode(), CHENNAI.getUnderlyingNode());
+			System.out.println("\nALL PATHS:::: ");
+			for (WeightedPath p : allPaths) {
+				System.out.println("PATH:");
+				for (Iterator<Node> iterator = p.nodes().iterator(); iterator.hasNext();) {
+					Node nodes = iterator.next();
+					System.out.print("==>" + nodes.getProperty(RailwayStation.NAME));
+				}
+			}
+
+			System.out.println("\nALL SIMPLE PATHS:::");
+			PathFinder<Path> p2 = GraphAlgoFactory.allSimplePaths(relExpander, 100);
+			Iterable<Path> mm = p2.findAllPaths(BLR.getUnderlyingNode(), CHENNAI.getUnderlyingNode());
+			for (Path m : mm) {
+				System.out.println("\nNEW PATH:" + m.length());
+				for (Node n : m.nodes()) {
+					System.out.print("==>" + n.getProperty(RailwayStation.NAME));
+				}
+			}
+
+			tx.success();
 		} finally {
 			tx.finish();
 		}
