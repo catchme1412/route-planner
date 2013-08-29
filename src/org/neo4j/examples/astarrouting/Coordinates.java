@@ -49,6 +49,7 @@ public class Coordinates
         return "longitude=" + longitude + ", latitude=" + latitude;
     }
     
+    //Rajesh
     public Coordinates() {
     	this.latitude = new Random().nextDouble();
     	this.longitude = new Random().nextDouble();
