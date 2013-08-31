@@ -47,6 +47,7 @@ import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Transaction;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.Traversal;
+import org.neo4j.tooling.GlobalGraphOperations;
 
 public class AStarRouting {
 	private static final EstimateEvaluator<Double> estimateEval = CommonEvaluators.geoEstimateEvaluator(
@@ -55,11 +56,60 @@ public class AStarRouting {
 	private static final int MINUTE = 60 * SECOND;
 	private static final int HOUR = 60 * MINUTE;
 	private static final int DAY = 24 * HOUR;
-	private static Map<String,Double> sortBasedOnCost = new LinkedHashMap<String,Double>();
-	private static Map<String,Long> sortBasedOnTime = new LinkedHashMap<String,Long>();
-	
+	private static Map<String, Double> sortBasedOnCost = new LinkedHashMap<String, Double>();
+	private static Map<String, Long> sortBasedOnTime = new LinkedHashMap<String, Long>();
+
 	// TODO create a custom cost evaluator
-	private static final CostEvaluator<Double> costEval = new RouteCostEvaluator();//CommonEvaluators.doubleCostEvaluator(RailwayStation.COST);
+	private static final CostEvaluator<Double> costEval = new RouteCostEvaluator();// CommonEvaluators.doubleCostEvaluator(RailwayStation.COST);
+
+	private static GraphDatabaseService graphDb;
+
+	public AStarRouting()  {
+		graphDb = new EmbeddedGraphDatabase("tmp/neo4j-db2");
+		registerShutdownHook(graphDb);
+		try {
+			routing(graphDb);
+		} catch (ParseException e) {
+			// TODO Auto-generated catch block
+			e.printStackTrace();
+		}
+	}
+	
+	public Node getNode(String stationCode) {
+		Transaction tx = graphDb.beginTx();
+		try {
+			for (Node n : GlobalGraphOperations.at(graphDb).getAllNodes()) {
+				try {
+					System.out.println(">>>>>>>>" + n.getId());
+				} catch(Exception e) {
+					System.out.println(e.getMessage().replaceAll("No property with propertyKeyId=", ""));
+				}
+//				System.out.println("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGgg:");
+//				System.out.println(">>>>>>>>>>"+n.getProperty("trainName"));
+//				if (n.getProperty("code").equals(stationCode)) {
+//					return n;
+//				}
+			}
+			tx.success();
+		} finally {
+			tx.finish();
+		}
+		return null;
+		
+	}
+	
+
+	private static void registerShutdownHook(final GraphDatabaseService graphDb) {
+		// Registers a shutdown hook for the Neo4j instance so that it
+		// shuts down nicely when the VM exits (even if you "Ctrl-C" the
+		// running application).
+		Runtime.getRuntime().addShutdownHook(new Thread() {
+			@Override
+			public void run() {
+				graphDb.shutdown();
+			}
+		});
+	}
 
 	public static void main(final String[] args) throws ParseException {
 		GraphDatabaseService graphDb = new EmbeddedGraphDatabase("/tmp/neo4j-db");
@@ -74,13 +124,13 @@ public class AStarRouting {
 	 * Creating the graph
 	 * 
 	 * @param graphDb
-	 * @throws ParseException 
+	 * @throws ParseException
 	 */
 	private static void routing(final GraphDatabaseService graphDb) throws ParseException {
 		Transaction tx = graphDb.beginTx();
 		RailwayStation BLR_SBC = null, BLR_CANTT = null, SALEM = null, CHENNAI = null, DEL = null, EKM = null, MV = null;
 		try {
-			
+
 			BLR_CANTT = new RailwayStation(graphDb, "Bangalore Cantt", "Karnataka");
 			BLR_SBC = new RailwayStation(graphDb, "Bangalore City", "Karnataka");
 			SALEM = new RailwayStation(graphDb, "Salem", "TamilNadu");
@@ -89,11 +139,9 @@ public class AStarRouting {
 			EKM = new RailwayStation(graphDb, "Eranakulam", "Kerala");
 			MV = new RailwayStation(graphDb, "Mailadudurai", "Tamil Nadu");
 
-			
-			
-//			/**
-//			 * BLR_SBC to BLR_CANTT - Eranakulam Express
-//			 */
+			// /**
+			// * BLR_SBC to BLR_CANTT - Eranakulam Express
+			// */
 			Relationship BLR_SBC2BLR_CANTT_EE = BLR_SBC.createRailRouteTo(BLR_CANTT);
 			BLR_SBC2BLR_CANTT_EE.setProperty("trainName", "Eranakulam Express");
 			BLR_SBC2BLR_CANTT_EE.setProperty("trainNumber", 12677);
@@ -102,21 +150,22 @@ public class AStarRouting {
 			BLR_SBC2BLR_CANTT_EE.setProperty("trainComfortRating", 4.5D);
 			BLR_SBC2BLR_CANTT_EE.setProperty("cost", 5D);
 			BLR_SBC2BLR_CANTT_EE.setProperty("distance", 5D);
-//			/**
-//			 * BLR_CANTT to SALEM - Eranakulam Exp
-//			 */
+			// /**
+			// * BLR_CANTT to SALEM - Eranakulam Exp
+			// */
 			Relationship BLR_CANTT2SA = BLR_CANTT.createRailRouteTo(SALEM);
 			BLR_CANTT2SA.setProperty("trainName", "Eranakulam Express");
 			BLR_CANTT2SA.setProperty("trainNumber", 12677);
-			BLR_CANTT2SA.setProperty("trainDeparture", "06:15");//correct time TODO
+			BLR_CANTT2SA.setProperty("trainDeparture", "06:15");// correct time
+																// TODO
 			BLR_CANTT2SA.setProperty("trainArrival", "10:02");
 			BLR_CANTT2SA.setProperty("trainComfortRating", 4.5D);
 			BLR_CANTT2SA.setProperty("cost", 213d);
 			BLR_CANTT2SA.setProperty("distance", 213d);
-			
+
 			/**
 			 * SALEM to Eranakulam - Eranakulam Exp
-			*/
+			 */
 			Relationship SA2EKM = SALEM.createRailRouteTo(EKM);
 			SA2EKM.setProperty("trainName", "Eranakulam Express");
 			SA2EKM.setProperty("trainNumber", 12677);
@@ -126,9 +175,9 @@ public class AStarRouting {
 			SA2EKM.setProperty("cost", 369d);
 			SA2EKM.setProperty("distance", 369d);
 
-			//			/**
-//			 * BLR_SBC to BLR_CANTT - Mailadudurai Express
-//			 */
+			// /**
+			// * BLR_SBC to BLR_CANTT - Mailadudurai Express
+			// */
 			Relationship BLR_SBC2BLR_CANTT_ME = BLR_SBC.createRailRouteTo(BLR_CANTT);
 			BLR_SBC2BLR_CANTT_ME.setProperty("trainName", "Mailadudurai Express");
 			BLR_SBC2BLR_CANTT_ME.setProperty("trainNumber", 16232);
@@ -137,10 +186,10 @@ public class AStarRouting {
 			BLR_SBC2BLR_CANTT_ME.setProperty("trainComfortRating", 4.5D);
 			BLR_SBC2BLR_CANTT_ME.setProperty("cost", 5D);
 			BLR_SBC2BLR_CANTT_ME.setProperty("distance", 5D);
-			
+
 			/**
-//			 * BLR_CANTT to SALEM - Mailadudurai Exp
-//			 */
+			 * // * BLR_CANTT to SALEM - Mailadudurai Exp //
+			 */
 			Relationship BLR_CANTT2SA_MAILADU = BLR_CANTT.createRailRouteTo(SALEM);
 			BLR_CANTT2SA_MAILADU.setProperty("trainName", "Mailadudurai Express");
 			BLR_CANTT2SA_MAILADU.setProperty("trainNumber", 16232);
@@ -149,11 +198,10 @@ public class AStarRouting {
 			BLR_CANTT2SA_MAILADU.setProperty("trainComfortRating", 4.5D);
 			BLR_CANTT2SA_MAILADU.setProperty("cost", 214d);
 			BLR_CANTT2SA_MAILADU.setProperty("distance", 214d);
-			
-			
+
 			/**
-//			 * SALEM to Mailadudurai - Mailadudurai Exp
-//			 */
+			 * // * SALEM to Mailadudurai - Mailadudurai Exp //
+			 */
 			Relationship SA2TJV_MAILADU = SALEM.createRailRouteTo(MV);
 			SA2TJV_MAILADU.setProperty("trainName", "Mailadudurai Express");
 			SA2TJV_MAILADU.setProperty("trainNumber", 16232);
@@ -162,7 +210,7 @@ public class AStarRouting {
 			SA2TJV_MAILADU.setProperty("trainComfortRating", 4.5D);
 			SA2TJV_MAILADU.setProperty("cost", 323d);
 			SA2TJV_MAILADU.setProperty("distance", 323d);
-			
+
 			/**
 			 * BLR_SBC to BLR_CANTT - KARNATAKA EXP
 			 */
@@ -176,7 +224,7 @@ public class AStarRouting {
 			BLR_SBC2BLR_CANTT_KE.setProperty("distance", 5D);
 
 			/**
-			 * BLR_CANTT to Delhi - KARNATAKA EXP 
+			 * BLR_CANTT to Delhi - KARNATAKA EXP
 			 */
 			Relationship BLR_CANTT2DEL = BLR_CANTT.createRailRouteTo(DEL);
 			BLR_CANTT2DEL.setProperty("trainName", "KARNATAKA EXP");
@@ -198,9 +246,7 @@ public class AStarRouting {
 			BLR_SBC2BLR_CANTT_LE.setProperty("trainComfortRating", 4.5D);
 			BLR_SBC2BLR_CANTT_LE.setProperty("cost", 5D);
 			BLR_SBC2BLR_CANTT_LE.setProperty("distance", 5D);
-			
-			
-			
+
 			/**
 			 * BLR_CANTT to Chennai - LALBAGH EXP
 			 */
@@ -212,7 +258,7 @@ public class AStarRouting {
 			BLR_CANTT2SA_LALBAGH.setProperty("trainComfortRating", 4.5D);
 			BLR_CANTT2SA_LALBAGH.setProperty("cost", 357d);
 			BLR_CANTT2SA_LALBAGH.setProperty("distance", 357d);
-			
+
 			/**
 			 * CHENNAI to SALEM - TRIVANDRUM MAIL
 			 */
@@ -224,18 +270,18 @@ public class AStarRouting {
 			CHENNAI2SA.setProperty("trainComfortRating", 4.5D);
 			CHENNAI2SA.setProperty("cost", 334d);
 			CHENNAI2SA.setProperty("distance", 334d);
-			
+
 			/**
 			 * SALEM to Eranakulam - TRIVANDRUM MAIL
-			*/
+			 */
 			Relationship SA2EKM_TM = SALEM.createRailRouteTo(EKM);
 			SA2EKM_TM.setProperty("trainName", "TRIVANDRUM MAIL");
 			SA2EKM_TM.setProperty("trainNumber", 12623);
 			SA2EKM_TM.setProperty("trainDeparture", "00:10");
 			SA2EKM_TM.setProperty("trainArrival", "06:20");
 			SA2EKM_TM.setProperty("trainComfortRating", 4.5D);
-			SA2EKM_TM.setProperty("cost", 687d-334d);
-			SA2EKM_TM.setProperty("distance", 687d-334d);
+			SA2EKM_TM.setProperty("cost", 687d - 334d);
+			SA2EKM_TM.setProperty("distance", 687d - 334d);
 			tx.success();
 		} finally {
 			tx.finish();
@@ -262,166 +308,175 @@ public class AStarRouting {
 			}
 
 			System.out.println("\nALL SIMPLE PATHS:::");
-			
+
 			PathFinder<Path> p2 = GraphAlgoFactory.allSimplePaths(relExpander, 100);
 			Iterable<Path> mm = p2.findAllPaths(BLR_SBC.getUnderlyingNode(), EKM.getUnderlyingNode());
 			for (Path m : mm) {
-				/*System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");*/
+				/*
+				 * System.out.println(
+				 * ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+				 */
 				StringBuffer proposedPath = new StringBuffer();
-//				System.out.print("\nBLR==>");
-				for (Relationship r :m.relationships()) {
+				// System.out.print("\nBLR==>");
+				for (Relationship r : m.relationships()) {
 					proposedPath.append("==>");
 					proposedPath.append(r.getProperty("trainName"));
 					proposedPath.append("::::");
 					proposedPath.append(r.getStartNode().getProperty("name"));
 					proposedPath.append("---");
 					proposedPath.append(r.getEndNode().getProperty("name"));
-					/*System.out.println("==>" + r.getProperty("trainName") + "::::" +r.getStartNode().getProperty("name") + "---" +r.getEndNode().getProperty("name") );*/
+					/*
+					 * System.out.println("==>" + r.getProperty("trainName") +
+					 * "::::" +r.getStartNode().getProperty("name") + "---"
+					 * +r.getEndNode().getProperty("name") );
+					 */
 				}
-				
-				
+
 				Double totalTotalCost = calculateCost(m);
 				Double totalTotalDistance = calculateTotalDistance(m);
 				Double totalTotalComfortIndex = calculateComfortIndex(m);
 				long duration = calculateDuration(m);
 				int trainns = calculateNoOfTrain(m);
-				
+
 				StringBuffer actualTime = calculateRealTime(duration);
 
 				sortBasedOnCost.put(proposedPath.toString(), totalTotalCost);
 				sortBasedOnTime.put(proposedPath.toString(), duration);
-				
-				
-				
-				/*System.out.println("Total Cost."+totalTotalCost);
-				System.out.println("Distance."+totalTotalDistance);
-				System.out.println("Comfort."+totalTotalComfortIndex);
-				System.out.println("Duration"+actualTime);*/
-				/*System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");*/
+
+				/*
+				 * System.out.println("Total Cost."+totalTotalCost);
+				 * System.out.println("Distance."+totalTotalDistance);
+				 * System.out.println("Comfort."+totalTotalComfortIndex);
+				 * System.out.println("Duration"+actualTime);
+				 */
+				/*
+				 * System.out.println(
+				 * ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+				 */
 			}
-			
+
 			Map<String, Double> sortedCostMap = sortByComparator(sortBasedOnCost);
 			Map<String, Long> sortedTimeMap = sortByComparator(sortBasedOnTime);
 			System.out.println("======================================================");
 			printMap(sortedCostMap);
-			System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");			
+			System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 			printTimeMap(sortedTimeMap);
 			System.out.println("======================================================");
 
+			
 			tx2.success();
 		} finally {
 			tx2.finish();
 		}
 	}
-	
+
 	private static Double calculateCost(Path m) {
 		Double totalTimeCost = 0.0;
-//		ArrayList<Double> costOfRoute = new ArrayList<Double>();
-		for (Relationship r : m.relationships() ){
-			totalTimeCost +=(Double)r.getProperty("cost");
+		// ArrayList<Double> costOfRoute = new ArrayList<Double>();
+		for (Relationship r : m.relationships()) {
+			totalTimeCost += (Double) r.getProperty("cost");
 		}
-//		for (int i=0;i<costOfRoute.size();i++) {
-//			totalTimeCost = totalTimeCost + costOfRoute.get(i);
-//		}
-		
+		// for (int i=0;i<costOfRoute.size();i++) {
+		// totalTimeCost = totalTimeCost + costOfRoute.get(i);
+		// }
+
 		return totalTimeCost;
 	}
-	
+
 	private static Double calculateTotalDistance(Path m) {
 		Double totalDistanceCost = 0.0;
-		for (Relationship r : m.relationships() ){
-			totalDistanceCost += (Double)r.getProperty("distance");
+		for (Relationship r : m.relationships()) {
+			totalDistanceCost += (Double) r.getProperty("distance");
 		}
 		return totalDistanceCost;
 	}
-	
+
 	private static Double calculateComfortIndex(Path m) {
 		Double totalComfortCost = 0.0;
-		for (Relationship r : m.relationships() ){
-			totalComfortCost += (Double)r.getProperty("trainComfortRating");
+		for (Relationship r : m.relationships()) {
+			totalComfortCost += (Double) r.getProperty("trainComfortRating");
 		}
 		return totalComfortCost;
 	}
-	
+
 	private static int calculateNoOfTrain(Path m) {
 		Set<Integer> trainSet = new TreeSet<Integer>();
-		for (Relationship r : m.relationships() ){
-			trainSet.add((int)r.getProperty("trainNumber"));
+		for (Relationship r : m.relationships()) {
+			trainSet.add((int) r.getProperty("trainNumber"));
 		}
 		return trainSet.size();
 	}
-	
-	private static long calculateDuration(Path m) throws ParseException {
-		
-		long timeTakenInMillis = 0;
-		for (Relationship r : m.relationships() ){
-			String startTimeString = (String)r.getProperty("trainDeparture");
-		    String endTimeString = (String)r.getProperty("trainArrival");
-		    int i =0;
-		    startTimeString = startTimeString.replace(":", "");
-		    endTimeString = endTimeString.replace(":", "");
-		    if (Integer.parseInt(startTimeString) > Integer.parseInt(endTimeString)) {
-		    	String tmp = startTimeString;
-		    	startTimeString = endTimeString;
-		    	endTimeString = tmp;
-		    	i++;
-		    }
 
-		    SimpleDateFormat format = new SimpleDateFormat("HHmm");
-		    Date date1 = format.parse(startTimeString);
-		    Date date2 = format.parse(endTimeString);
-		    long ms = 0;
-		    if (i == 1) {
-		    ms = DAY - (date2.getTime() - date1.getTime());
-		    } else {
-		    ms = date2.getTime() - date1.getTime();	
-		    }
-			
-		    timeTakenInMillis += ms;
-		    
+	private static long calculateDuration(Path m) throws ParseException {
+
+		long timeTakenInMillis = 0;
+		for (Relationship r : m.relationships()) {
+			String startTimeString = (String) r.getProperty("trainDeparture");
+			String endTimeString = (String) r.getProperty("trainArrival");
+			int i = 0;
+			startTimeString = startTimeString.replace(":", "");
+			endTimeString = endTimeString.replace(":", "");
+			if (Integer.parseInt(startTimeString) > Integer.parseInt(endTimeString)) {
+				String tmp = startTimeString;
+				startTimeString = endTimeString;
+				endTimeString = tmp;
+				i++;
+			}
+
+			SimpleDateFormat format = new SimpleDateFormat("HHmm");
+			Date date1 = format.parse(startTimeString);
+			Date date2 = format.parse(endTimeString);
+			long ms = 0;
+			if (i == 1) {
+				ms = DAY - (date2.getTime() - date1.getTime());
+			} else {
+				ms = date2.getTime() - date1.getTime();
+			}
+
+			timeTakenInMillis += ms;
+
 		}
-		
+
 		return timeTakenInMillis;
 	}
-	
-	private static StringBuffer calculateRealTime (long ms) {
-		
+
+	private static StringBuffer calculateRealTime(long ms) {
+
 		StringBuffer text = new StringBuffer("");
-	    if (ms > DAY) {
-	      text.append(ms / DAY).append(" days ");
-	      ms %= DAY;
-	    }
-	    if (ms > HOUR) {
-	      text.append(ms / HOUR).append(" hours ");
-	      ms %= HOUR;
-	    }
-	    if (ms > MINUTE) {
-	      text.append(ms / MINUTE).append(" minutes ");
-	      ms %= MINUTE;
-	    }
-	    if (ms > SECOND) {
-	      text.append(ms / SECOND).append(" seconds ");
-	      ms %= SECOND;
-	    }
-	    text.append(ms + " ms");
-	
-	    return text;
+		if (ms > DAY) {
+			text.append(ms / DAY).append(" days ");
+			ms %= DAY;
+		}
+		if (ms > HOUR) {
+			text.append(ms / HOUR).append(" hours ");
+			ms %= HOUR;
+		}
+		if (ms > MINUTE) {
+			text.append(ms / MINUTE).append(" minutes ");
+			ms %= MINUTE;
+		}
+		if (ms > SECOND) {
+			text.append(ms / SECOND).append(" seconds ");
+			ms %= SECOND;
+		}
+		text.append(ms + " ms");
+
+		return text;
 	}
-	
+
 	private static Map sortByComparator(Map unsortMap) {
-		 
+
 		List list = new LinkedList(unsortMap.entrySet());
- 
+
 		// sort list based on comparator
 		Collections.sort(list, new Comparator() {
 			public int compare(Object o1, Object o2) {
-				return ((Comparable) ((Map.Entry) (o1)).getValue())
-                                       .compareTo(((Map.Entry) (o2)).getValue());
+				return ((Comparable) ((Map.Entry) (o1)).getValue()).compareTo(((Map.Entry) (o2)).getValue());
 			}
 		});
- 
+
 		// put sorted list into map again
-                //LinkedHashMap make sure order in which keys were inserted
+		// LinkedHashMap make sure order in which keys were inserted
 		Map sortedMap = new LinkedHashMap();
 		for (Iterator it = list.iterator(); it.hasNext();) {
 			Map.Entry entry = (Map.Entry) it.next();
@@ -429,20 +484,31 @@ public class AStarRouting {
 		}
 		return sortedMap;
 	}
-	
-	public static void printMap(Map<String, Double> map){
+
+	public static void printMap(Map<String, Double> map) {
 		for (Map.Entry entry : map.entrySet()) {
-			System.out.println("Key : " + entry.getKey() 
-                                   + " Value : " + entry.getValue());
+			System.out.println("Key : " + entry.getKey() + " Value : " + entry.getValue());
 		}
 	}
-	
-	public static void printTimeMap(Map<String, Long> map){
+
+	public static void printTimeMap(Map<String, Long> map) {
 		for (Map.Entry entry : map.entrySet()) {
-			System.out.println("Key : " + entry.getKey() 
-                                   + " Value : " + calculateRealTime((long)entry.getValue()));
+			System.out.println("Key : " + entry.getKey() + " Value : " + calculateRealTime((long) entry.getValue()));
+		}
+	}
+
+	public Path shortestPath(SearchCriteria searchCriteria) {
+
+		Transaction tx2 = graphDb.beginTx();
+		try {
+			Expander relExpander = Traversal.expanderForTypes(RelationshipTypes.RAIL_ROUTE, Direction.OUTGOING);
+			relExpander.add(RelationshipTypes.RAIL_ROUTE, Direction.OUTGOING);
+			PathFinder<WeightedPath> sp = GraphAlgoFactory.aStar(relExpander, costEval, estimateEval);
+			Path path = sp.findSinglePath(searchCriteria.getSource(), searchCriteria.getDestination());
+			tx2.success();
+			return path;
+		} finally {
+			tx2.finish();
 		}
 	}
 }
-
-
