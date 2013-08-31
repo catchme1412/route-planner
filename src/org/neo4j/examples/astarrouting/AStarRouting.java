@@ -19,6 +19,7 @@
  */
 package org.neo4j.examples.astarrouting;
 
+import java.io.File;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
 import java.util.Collections;
@@ -63,41 +64,67 @@ public class AStarRouting {
 	private static final CostEvaluator<Double> costEval = new RouteCostEvaluator();// CommonEvaluators.doubleCostEvaluator(RailwayStation.COST);
 
 	private static GraphDatabaseService graphDb;
+	private static final String dbPath = "/tmp/neo4j-db";
 
-	public AStarRouting()  {
-		graphDb = new EmbeddedGraphDatabase("tmp/neo4j-db2");
-		registerShutdownHook(graphDb);
+	public AStarRouting() {
+		File file = new File(dbPath);
+		file.deleteOnExit();
+		setGraphDb(new EmbeddedGraphDatabase(dbPath));
+		registerShutdownHook(getGraphDb());
 		try {
-			routing(graphDb);
+			routing(getGraphDb());
+			
+			countNodes();
 		} catch (ParseException e) {
 			// TODO Auto-generated catch block
 			e.printStackTrace();
 		}
 	}
-	
-	public Node getNode(String stationCode) {
-		Transaction tx = graphDb.beginTx();
+
+	private void countNodes() {
+		Transaction tx = getGraphDb().beginTx();
+		int i = 0;
 		try {
-			for (Node n : GlobalGraphOperations.at(graphDb).getAllNodes()) {
+			
+			for (Node n :GlobalGraphOperations.at(getGraphDb()).getAllNodes()) {
+				i++;
+			}
+			System.out.println("TOTAL NODES:" + i);
+			tx.success();
+		}finally{
+			tx.finish();
+		}
+		
+	}
+
+	public Node getNode(String stationCode) {
+		Transaction tx = getGraphDb().beginTx();
+		try {
+			for (Node n : GlobalGraphOperations.at(getGraphDb()).getAllNodes()) {
 				try {
-					System.out.println(">>>>>>>>" + n.getId());
-				} catch(Exception e) {
-					System.out.println(e.getMessage().replaceAll("No property with propertyKeyId=", ""));
+					System.out.println("getNode:" + n.getId());
+					System.out.println(">>>>>>>>" + n.getProperty("code"));
+				} catch (Exception e) {
+					//temp fix: delete all the unwanted nodes and relationships
+					for (Relationship r : n.getRelationships()) {
+						r.delete();
+					}
+					n.delete();
+					continue;
 				}
-//				System.out.println("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGgg:");
-//				System.out.println(">>>>>>>>>>"+n.getProperty("trainName"));
-//				if (n.getProperty("code").equals(stationCode)) {
-//					return n;
-//				}
+				// System.out.println("GGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGGgg:");
+				// System.out.println(">>>>>>>>>>"+n.getProperty("trainName"));
+				if (n.getProperty("code").equals(stationCode)) {
+					return n;
+				}
 			}
 			tx.success();
 		} finally {
 			tx.finish();
 		}
 		return null;
-		
+
 	}
-	
 
 	private static void registerShutdownHook(final GraphDatabaseService graphDb) {
 		// Registers a shutdown hook for the Neo4j instance so that it
@@ -112,11 +139,12 @@ public class AStarRouting {
 	}
 
 	public static void main(final String[] args) throws ParseException {
-		GraphDatabaseService graphDb = new EmbeddedGraphDatabase("/tmp/neo4j-db");
+		GraphDatabaseService graphDb = new EmbeddedGraphDatabase(dbPath);
 		try {
 			routing(graphDb);
 		} finally {
 			graphDb.shutdown();
+			new File(dbPath).deleteOnExit();
 		}
 	}
 
@@ -130,14 +158,14 @@ public class AStarRouting {
 		Transaction tx = graphDb.beginTx();
 		RailwayStation BLR_SBC = null, BLR_CANTT = null, SALEM = null, CHENNAI = null, DEL = null, EKM = null, MV = null;
 		try {
-
-			BLR_CANTT = new RailwayStation(graphDb, "Bangalore Cantt", "Karnataka");
-			BLR_SBC = new RailwayStation(graphDb, "Bangalore City", "Karnataka");
-			SALEM = new RailwayStation(graphDb, "Salem", "TamilNadu");
-			CHENNAI = new RailwayStation(graphDb, "Chennai", "TamilNadu");
-			DEL = new RailwayStation(graphDb, "Delhi", "Delhi");
-			EKM = new RailwayStation(graphDb, "Eranakulam", "Kerala");
-			MV = new RailwayStation(graphDb, "Mailadudurai", "Tamil Nadu");
+			//BNC, SBC, SA, MAS, DLI, ERS, MV	
+			BLR_CANTT = new RailwayStation(graphDb, "Bangalore Cantt", "Karnataka", "BNC", 12.9921351, 77.60056850000001);
+			BLR_SBC = new RailwayStation(graphDb, "Bangalore City", "Karnataka", "SBC", 12.976549900000000000, 77.568811500000040000);
+			SALEM = new RailwayStation(graphDb, "Salem", "TamilNadu", "SA", 11.664325000000000000, 78.146014199999970000);
+			CHENNAI = new RailwayStation(graphDb, "Chennai", "TamilNadu", "MAS", 13.060422000000000000, 80.249583000000030000);
+			DEL = new RailwayStation(graphDb, "Delhi", "Delhi", "DLI", 28.635308000000000000, 77.224960000000010000  );
+			EKM = new RailwayStation(graphDb, "Eranakulam", "Kerala", "ERS", 9.970101699999999000, 76.291173999999960000);
+			MV = new RailwayStation(graphDb, "Mailadudurai", "Tamil Nadu", "MV", 11.094908200000000000, 79.628278700000010000);
 
 			// /**
 			// * BLR_SBC to BLR_CANTT - Eranakulam Express
@@ -363,7 +391,6 @@ public class AStarRouting {
 			printTimeMap(sortedTimeMap);
 			System.out.println("======================================================");
 
-			
 			tx2.success();
 		} finally {
 			tx2.finish();
@@ -499,7 +526,7 @@ public class AStarRouting {
 
 	public Path shortestPath(SearchCriteria searchCriteria) {
 
-		Transaction tx2 = graphDb.beginTx();
+		Transaction tx2 = getGraphDb().beginTx();
 		try {
 			Expander relExpander = Traversal.expanderForTypes(RelationshipTypes.RAIL_ROUTE, Direction.OUTGOING);
 			relExpander.add(RelationshipTypes.RAIL_ROUTE, Direction.OUTGOING);
@@ -510,5 +537,13 @@ public class AStarRouting {
 		} finally {
 			tx2.finish();
 		}
+	}
+
+	public static GraphDatabaseService getGraphDb() {
+		return graphDb;
+	}
+
+	public static void setGraphDb(GraphDatabaseService graphDb) {
+		AStarRouting.graphDb = graphDb;
 	}
 }

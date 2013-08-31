@@ -24,10 +24,11 @@ import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Relationship;
 
 public class RailwayStation {
-	static final String LATITUDE = "lat";
-	static final String LONGITUDE = "lon";
+	public static final String LATITUDE = "lat";
+	public static final String LONGITUDE = "lon";
 	static final String NAME = "name";
 	static final String COST = "cost";
+	static final String STATION_CODE = "code";
 	private final Node underlyingNode;
 	private Coordinates coordinates;
 
@@ -35,13 +36,14 @@ public class RailwayStation {
 		this.underlyingNode = node;
 	}
 
-	public RailwayStation(final GraphDatabaseService graphDb, final String city, final String state) {
+	public RailwayStation(final GraphDatabaseService graphDb, final String city, final String state, String code, double latitude, double longtude) {
 		this.underlyingNode = graphDb.createNode();
 		// Rajesh need to be provided while creating the station
-		coordinates = new Coordinates();
-		underlyingNode.setProperty(LATITUDE, getCoordinates().getLatitude());
-		underlyingNode.setProperty(LONGITUDE, getCoordinates().getLongtude());
+//		coordinates = new Coordinates();
+		underlyingNode.setProperty(LATITUDE, latitude);
+		underlyingNode.setProperty(LONGITUDE, longtude);
 		underlyingNode.setProperty(NAME, city);
+		underlyingNode.setProperty(STATION_CODE, code);
 		System.out.println(this);
 	}
 

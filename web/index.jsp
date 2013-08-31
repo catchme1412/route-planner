@@ -100,7 +100,7 @@
                   <label class="inline">Source</label>
                 </div>
                 <div class="large-10 columns">
-                  <input type="text" name="source" placeholder="Bangalore">
+                  <input type="text" name="source" placeholder="SBC, BNC, SA, MAS, DLI, ERS  or MV">
                 </div>
               </div>
               <div class="row collapse">
@@ -108,7 +108,7 @@
                   <label class="inline">Destination</label>
                 </div>
                 <div class="large-10 columns">
-                  <input type="text" name="destination" placeholder="Cochin">
+                  <input type="text" name="destination" placeholder="SBC, BNC, SA, MAS, DLI, ERS  or MV">
                 </div>
                 <div class="large-2 columns">
                   <label class="inline">Preference</label>

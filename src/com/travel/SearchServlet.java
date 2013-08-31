@@ -11,6 +11,7 @@ import org.neo4j.examples.astarrouting.AStarRouting;
 import org.neo4j.examples.astarrouting.RailwayStation;
 import org.neo4j.examples.astarrouting.SearchCriteria;
 import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.Transaction;
 
 /**
  * Servlet implementation class SearchServlet
@@ -35,7 +36,14 @@ public class SearchServlet extends HttpServlet {
 		SearchCriteria searchCriteria = getSearchCriteria(request);
 		
 		Path path = graph.shortestPath(searchCriteria);
-		response.getWriter().print(path);
+		Transaction tx2 = graph.getGraphDb().beginTx();
+		try {
+			//TODO render the path in meaningful form to UI
+			response.getWriter().print(path);
+			tx2.success();
+		} finally {
+			tx2.finish();
+		}
 		
 	}
 
