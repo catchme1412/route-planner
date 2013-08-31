@@ -19,16 +19,19 @@
  */
 package org.neo4j.examples.astarrouting;
 
-import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Date;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
+import java.util.LinkedList;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 
-import org.joda.time.DateTime;
-import org.joda.time.Duration;
-import org.joda.time.Interval;
 import org.neo4j.graphalgo.CommonEvaluators;
 import org.neo4j.graphalgo.CostEvaluator;
 import org.neo4j.graphalgo.EstimateEvaluator;
@@ -45,15 +48,20 @@ import org.neo4j.graphdb.Transaction;
 import org.neo4j.kernel.EmbeddedGraphDatabase;
 import org.neo4j.kernel.Traversal;
 
-import sun.java2d.loops.ProcessPath.EndSubPathHandler;
-
 public class AStarRouting {
 	private static final EstimateEvaluator<Double> estimateEval = CommonEvaluators.geoEstimateEvaluator(
 			RailwayStation.LATITUDE, RailwayStation.LONGITUDE);
+	private static final int SECOND = 1000;
+	private static final int MINUTE = 60 * SECOND;
+	private static final int HOUR = 60 * MINUTE;
+	private static final int DAY = 24 * HOUR;
+	private static Map<String,Double> sortBasedOnCost = new LinkedHashMap<String,Double>();
+	private static Map<String,Long> sortBasedOnTime = new LinkedHashMap<String,Long>();
+	
 	// TODO create a custom cost evaluator
 	private static final CostEvaluator<Double> costEval = new RouteCostEvaluator();//CommonEvaluators.doubleCostEvaluator(RailwayStation.COST);
 
-	public static void main(final String[] args) {
+	public static void main(final String[] args) throws ParseException {
 		GraphDatabaseService graphDb = new EmbeddedGraphDatabase("/tmp/neo4j-db");
 		try {
 			routing(graphDb);
@@ -66,8 +74,9 @@ public class AStarRouting {
 	 * Creating the graph
 	 * 
 	 * @param graphDb
+	 * @throws ParseException 
 	 */
-	private static void routing(final GraphDatabaseService graphDb) {
+	private static void routing(final GraphDatabaseService graphDb) throws ParseException {
 		Transaction tx = graphDb.beginTx();
 		RailwayStation BLR_SBC = null, BLR_CANTT = null, SALEM = null, CHENNAI = null, DEL = null, EKM = null, MV = null;
 		try {
@@ -236,13 +245,13 @@ public class AStarRouting {
 			Expander relExpander = Traversal.expanderForTypes(RelationshipTypes.RAIL_ROUTE, Direction.BOTH);
 			relExpander.add(RelationshipTypes.RAIL_ROUTE, Direction.BOTH);
 			PathFinder<WeightedPath> sp = GraphAlgoFactory.aStar(relExpander, costEval, estimateEval);
-			Path path = sp.findSinglePath(BLR_SBC.getUnderlyingNode(), CHENNAI.getUnderlyingNode());
+			Path path = sp.findSinglePath(BLR_SBC.getUnderlyingNode(), EKM.getUnderlyingNode());
 			System.out.println("SHORTEST PATH IS GIVEN BELOW:");
 			for (Node node : path.nodes()) {
 				System.out.print("=>" + node.getProperty(RailwayStation.NAME));
 			}
 
-			Iterable<WeightedPath> allPaths = sp.findAllPaths(BLR_SBC.getUnderlyingNode(), CHENNAI.getUnderlyingNode());
+			Iterable<WeightedPath> allPaths = sp.findAllPaths(BLR_SBC.getUnderlyingNode(), EKM.getUnderlyingNode());
 			System.out.println("\nALL PATHS:::: ");
 			for (WeightedPath p : allPaths) {
 				System.out.println("PATH:");
@@ -255,19 +264,49 @@ public class AStarRouting {
 			System.out.println("\nALL SIMPLE PATHS:::");
 			
 			PathFinder<Path> p2 = GraphAlgoFactory.allSimplePaths(relExpander, 100);
-			Iterable<Path> mm = p2.findAllPaths(BLR_SBC.getUnderlyingNode(), CHENNAI.getUnderlyingNode());
+			Iterable<Path> mm = p2.findAllPaths(BLR_SBC.getUnderlyingNode(), EKM.getUnderlyingNode());
 			for (Path m : mm) {
+				/*System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");*/
+				StringBuffer proposedPath = new StringBuffer();
+//				System.out.print("\nBLR==>");
+				for (Relationship r :m.relationships()) {
+					proposedPath.append("==>");
+					proposedPath.append(r.getProperty("trainName"));
+					proposedPath.append("::::");
+					proposedPath.append(r.getStartNode().getProperty("name"));
+					proposedPath.append("---");
+					proposedPath.append(r.getEndNode().getProperty("name"));
+					/*System.out.println("==>" + r.getProperty("trainName") + "::::" +r.getStartNode().getProperty("name") + "---" +r.getEndNode().getProperty("name") );*/
+				}
+				
+				
 				Double totalTotalCost = calculateCost(m);
 				Double totalTotalDistance = calculateTotalDistance(m);
 				Double totalTotalComfortIndex = calculateComfortIndex(m);
-				for (Relationship r :m.relationships()) {
-					System.out.print("==>" + r.getProperty("trainName") + "==>" + r.getEndNode().getProperty("name") );
-				}
+				long duration = calculateDuration(m);
+				int trainns = calculateNoOfTrain(m);
 				
-				System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>."+totalTotalCost);
-				System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>."+totalTotalDistance);
-				System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>."+totalTotalComfortIndex);
+				StringBuffer actualTime = calculateRealTime(duration);
+
+				sortBasedOnCost.put(proposedPath.toString(), totalTotalCost);
+				sortBasedOnTime.put(proposedPath.toString(), duration);
+				
+				
+				
+				/*System.out.println("Total Cost."+totalTotalCost);
+				System.out.println("Distance."+totalTotalDistance);
+				System.out.println("Comfort."+totalTotalComfortIndex);
+				System.out.println("Duration"+actualTime);*/
+				/*System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");*/
 			}
+			
+			Map<String, Double> sortedCostMap = sortByComparator(sortBasedOnCost);
+			Map<String, Long> sortedTimeMap = sortByComparator(sortBasedOnTime);
+			System.out.println("======================================================");
+			printMap(sortedCostMap);
+			System.out.println(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");			
+			printTimeMap(sortedTimeMap);
+			System.out.println("======================================================");
 
 			tx2.success();
 		} finally {
@@ -289,67 +328,120 @@ public class AStarRouting {
 	}
 	
 	private static Double calculateTotalDistance(Path m) {
-		System.out.println("\nNEW PATH:" + m.length());
-		ArrayList<Double> costOfRoute = new ArrayList<Double>();
-		for (Relationship r : m.relationships() ){
-			costOfRoute.add((Double)r.getProperty("distance"));
-		}
 		Double totalDistanceCost = 0.0;
-		for (int i=0;i<costOfRoute.size();i++) {
-			totalDistanceCost = totalDistanceCost + costOfRoute.get(i);
+		for (Relationship r : m.relationships() ){
+			totalDistanceCost += (Double)r.getProperty("distance");
 		}
 		return totalDistanceCost;
 	}
 	
 	private static Double calculateComfortIndex(Path m) {
-		System.out.println("\nNEW PATH:" + m.length());
-		ArrayList<Double> costOfRoute = new ArrayList<Double>();
-		for (Relationship r : m.relationships() ){
-			costOfRoute.add((Double)r.getProperty("trainComfortRating"));
-		}
 		Double totalComfortCost = 0.0;
-		for (int i=0;i<costOfRoute.size();i++) {
-			totalComfortCost = totalComfortCost + costOfRoute.get(i);
+		for (Relationship r : m.relationships() ){
+			totalComfortCost += (Double)r.getProperty("trainComfortRating");
 		}
 		return totalComfortCost;
 	}
 	
-	private static boolean calculateTimeIntervalForConnectingTrains(Path m) throws ParseException {
-		
-		ArrayList<DateTime> startTime = new ArrayList<DateTime>();
-		ArrayList<DateTime> endTime = new ArrayList<DateTime>();
-		
-		DateFormat formatter = new SimpleDateFormat("hh:mm:ss a");
-		
-		int i = 0;
+	private static int calculateNoOfTrain(Path m) {
+		Set<Integer> trainSet = new TreeSet<Integer>();
 		for (Relationship r : m.relationships() ){
-			String startTimeString = (String)r.getProperty("trainComfortRating");
-			String endTimeString = (String)r.getProperty("trainComfortRating");
-			
-			//Date sdate = (Date)formatter.parse(startTimeString);
-			//Date edate = (Date)formatter.parse(endTimeString);
-			DateTime sdate = DateTime.parse(startTimeString);
-			DateTime edate = DateTime.parse(endTimeString);
-
-			if (i > 1) {
-				Interval inter = new Interval(startTime.get(startTime.size()-1), sdate);
-				Duration duration = inter.toDuration();
-				duration.toStandardHours();
-			}
-
-			if (i == 0) {
-				startTime.add(edate);
-			} else {
-				startTime.add(sdate);
-				startTime.add(edate);
-			}
-
-			i++;
-			
+			trainSet.add((int)r.getProperty("trainNumber"));
 		}
-
-		return false;
+		return trainSet.size();
+	}
+	
+	private static long calculateDuration(Path m) throws ParseException {
 		
+		long timeTakenInMillis = 0;
+		for (Relationship r : m.relationships() ){
+			String startTimeString = (String)r.getProperty("trainDeparture");
+		    String endTimeString = (String)r.getProperty("trainArrival");
+		    int i =0;
+		    startTimeString = startTimeString.replace(":", "");
+		    endTimeString = endTimeString.replace(":", "");
+		    if (Integer.parseInt(startTimeString) > Integer.parseInt(endTimeString)) {
+		    	String tmp = startTimeString;
+		    	startTimeString = endTimeString;
+		    	endTimeString = tmp;
+		    	i++;
+		    }
+
+		    SimpleDateFormat format = new SimpleDateFormat("HHmm");
+		    Date date1 = format.parse(startTimeString);
+		    Date date2 = format.parse(endTimeString);
+		    long ms = 0;
+		    if (i == 1) {
+		    ms = DAY - (date2.getTime() - date1.getTime());
+		    } else {
+		    ms = date2.getTime() - date1.getTime();	
+		    }
+			
+		    timeTakenInMillis += ms;
+		    
+		}
+		
+		return timeTakenInMillis;
+	}
+	
+	private static StringBuffer calculateRealTime (long ms) {
+		
+		StringBuffer text = new StringBuffer("");
+	    if (ms > DAY) {
+	      text.append(ms / DAY).append(" days ");
+	      ms %= DAY;
+	    }
+	    if (ms > HOUR) {
+	      text.append(ms / HOUR).append(" hours ");
+	      ms %= HOUR;
+	    }
+	    if (ms > MINUTE) {
+	      text.append(ms / MINUTE).append(" minutes ");
+	      ms %= MINUTE;
+	    }
+	    if (ms > SECOND) {
+	      text.append(ms / SECOND).append(" seconds ");
+	      ms %= SECOND;
+	    }
+	    text.append(ms + " ms");
+	
+	    return text;
+	}
+	
+	private static Map sortByComparator(Map unsortMap) {
+		 
+		List list = new LinkedList(unsortMap.entrySet());
+ 
+		// sort list based on comparator
+		Collections.sort(list, new Comparator() {
+			public int compare(Object o1, Object o2) {
+				return ((Comparable) ((Map.Entry) (o1)).getValue())
+                                       .compareTo(((Map.Entry) (o2)).getValue());
+			}
+		});
+ 
+		// put sorted list into map again
+                //LinkedHashMap make sure order in which keys were inserted
+		Map sortedMap = new LinkedHashMap();
+		for (Iterator it = list.iterator(); it.hasNext();) {
+			Map.Entry entry = (Map.Entry) it.next();
+			sortedMap.put(entry.getKey(), entry.getValue());
+		}
+		return sortedMap;
+	}
+	
+	public static void printMap(Map<String, Double> map){
+		for (Map.Entry entry : map.entrySet()) {
+			System.out.println("Key : " + entry.getKey() 
+                                   + " Value : " + entry.getValue());
+		}
+	}
+	
+	public static void printTimeMap(Map<String, Long> map){
+		for (Map.Entry entry : map.entrySet()) {
+			System.out.println("Key : " + entry.getKey() 
+                                   + " Value : " + calculateRealTime((long)entry.getValue()));
+		}
 	}
 }
 
