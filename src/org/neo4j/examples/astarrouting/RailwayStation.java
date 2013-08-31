@@ -37,7 +37,7 @@ public class RailwayStation {
 
 	public RailwayStation(final GraphDatabaseService graphDb, final String city, final String state) {
 		this.underlyingNode = graphDb.createNode();
-		//Rajesh need to be provided while creating the station
+		// Rajesh need to be provided while creating the station
 		coordinates = new Coordinates();
 		underlyingNode.setProperty(LATITUDE, getCoordinates().getLatitude());
 		underlyingNode.setProperty(LONGITUDE, getCoordinates().getLongtude());
@@ -54,15 +54,16 @@ public class RailwayStation {
 	}
 
 	public Coordinates getCoordinates() {
-//		double latitude = (Double) underlyingNode.getProperty(LATITUDE);
-//		double longitude = (Double) underlyingNode.getProperty(LONGITUDE);
-//		return new Coordinates(latitude, longitude);
+		// double latitude = (Double) underlyingNode.getProperty(LATITUDE);
+		// double longitude = (Double) underlyingNode.getProperty(LONGITUDE);
+		// return new Coordinates(latitude, longitude);
 		return coordinates;
 	}
 
-	public void createRailRouteTo(final RailwayStation other) {
-		Relationship road = underlyingNode.createRelationshipTo(other.underlyingNode, RelationshipTypes.RAIL_ROUTE);
-		road.setProperty(COST, GeoCostEvaluator.distance(underlyingNode, other.underlyingNode));
+	public Relationship createRailRouteTo(final RailwayStation other) {
+		Relationship route = underlyingNode.createRelationshipTo(other.underlyingNode, RelationshipTypes.RAIL_ROUTE);
+		route.setProperty(COST, GeoCostEvaluator.distance(underlyingNode, other.underlyingNode));
+		return (route);
 	}
 
 	@Override
