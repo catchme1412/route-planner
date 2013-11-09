@@ -2,7 +2,6 @@ package com.travel;
 
 import java.io.IOException;
 import java.text.ParseException;
-import java.util.Map;
 
 import javax.servlet.RequestDispatcher;
 import javax.servlet.ServletException;
@@ -13,8 +12,11 @@ import javax.servlet.http.HttpServletResponse;
 
 import org.neo4j.examples.astarrouting.AStarRouting;
 import org.neo4j.examples.astarrouting.SearchCriteria;
+import org.neo4j.graphdb.Node;
 import org.neo4j.graphdb.Path;
+import org.neo4j.graphdb.Relationship;
 import org.neo4j.graphdb.Transaction;
+import org.neo4j.tooling.GlobalGraphOperations;
 
 /**
  * Servlet implementation class SearchServlet
@@ -32,6 +34,28 @@ public class SearchServlet extends HttpServlet {
         // TODO Auto-generated constructor stub
     }
 
+	public void removeAll()  {
+
+
+		Transaction tx = graph.getGraphDb().beginTx();
+		try {
+			GlobalGraphOperations ops = GlobalGraphOperations.at(graph.getGraphDb());
+
+			for (Relationship relationship : ops.getAllRelationships()) {
+				relationship.delete();
+			}
+			for (Node node : ops.getAllNodes()) {
+				node.delete();
+			}
+
+			tx.success();
+
+		} catch (Exception e) {
+			tx.failure();
+		} finally {
+			tx.finish();
+		}
+	}
 	/**
 	 * @see HttpServlet#doGet(HttpServletRequest request, HttpServletResponse response)
 	 */
@@ -50,7 +74,7 @@ public class SearchServlet extends HttpServlet {
 		try {
 			
 			// TODO render the path in meaningful form to UI
-			RequestDispatcher view = request.getRequestDispatcher("Results.jsp");
+			RequestDispatcher view = request.getRequestDispatcher("iframeResults.jsp");
 			request.setAttribute("path", results);
 
 			view.forward(request, response);

@@ -1,3 +1,4 @@
+<%@ taglib prefix="c" uri="http://java.sun.com/jsp/jstl/core"%>
 <!DOCTYPE html>
 <!--[if IE 8]>    <html class="no-js lt-ie9" lang="en"> <![endif]-->
 <!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
@@ -8,12 +9,36 @@
   <meta name="viewport" content="width=device-width" />
 
   <title>Bon Voyage</title>
-
-  <link rel="stylesheet" href="css/normalize.css">
-  <link rel="stylesheet" href="css/foundation.css">
-
-  <script src="js/vendor/custom.modernizr.js"></script>
-
+<link rel="stylesheet" href="http://code.jquery.com/ui/1.10.3/themes/smoothness/jquery-ui.css" />
+<script src="http://code.jquery.com/jquery-1.9.1.js"></script>
+<script src="http://code.jquery.com/ui/1.10.3/jquery-ui.js"></script>
+<link rel="stylesheet" href="/resources/demos/style.css" />
+<link rel="stylesheet" href="css/normalize.css">
+<link rel="stylesheet" href="css/foundation.css">
+<script src="js/vendor/custom.modernizr.js"></script>
+<script>
+/* $(document).ready(function(){
+	  $("#results").click(function(){
+	   alert("The paragraph was clicked.");
+	  });
+	}); */
+$(function() {
+var icons = {
+header: "ui-icon-circle-arrow-e",
+activeHeader: "ui-icon-circle-arrow-s"
+};
+$( "#accordion" ).accordion({
+icons: icons
+});
+$( "#toggle" ).button().click(function() {
+if ( $( "#accordion" ).accordion( "option", "icons" ) ) {
+$( "#accordion" ).accordion( "option", "icons", null );
+} else {
+$( "#accordion" ).accordion( "option", "icons", icons );
+}
+});
+});
+</script>
 </head>
 <body>
 
@@ -87,44 +112,49 @@
     <!-- Contact Details -->
     <div class="large-7 columns">
  
-      <h3>Smarter way to plan your travel</h3>
- 
       <div class="section-container auto" data-section>
         <section class="section">
-          <h5 class="title"><a href="#panel1">Search</a></h5>
-          <div class="content" data-slug="panel1">
-            <form action="${pageContext.request.contextPath}/route">
-              <div class="row collapse">
-                <div class="large-2 columns">
-                  <label class="inline">Source</label>
-                </div>
-                <div class="large-10 columns">
-                  <input type="text" name="source" placeholder="SBC, BNC, SA, MAS, DLI, ERS  or MV">
-                </div>
-              </div>
-              <div class="row collapse">
-                <div class="large-2 columns">
-                  <label class="inline">Destination</label>
-                </div>
-                <div class="large-10 columns">
-                  <input type="text" name="destination" placeholder="SBC, BNC, SA, MAS, DLI, ERS  or MV">
-                </div>
-                <div class="large-2 columns">
-                  <label class="inline">Preference</label>
-                </div>
-                <div class="large-10 columns">
-                	
-                  <select name="priority">
-                  	  <option>Don't care</option>
-	                  <option>Time</option>
-	                  <option>Cost</option>
-	                  <option>Convenience</option>
-                  </select>
-                </div>
-              </div>
-              <button type="submit" class="radius button">Submit</button>
-            </form>
-          </div>
+          <div id="accordion">
+<h3>Direct train</h3>
+<div>
+<p>
+<table border="1">
+	<tr>
+		<td>Direct Train</td>
+		<td>Cost</td>
+		<td>Duration</td>
+		<td>Comfort</td>
+	</tr>
+	<tr>
+		<td>${requestScope.path.shortestPath}</td>
+		<td>Rs.${requestScope.path.shortestPathCost}</td>
+		<td>${requestScope.path.shortestPathDuration}</td>
+		<td>${requestScope.path.shortestPathComfort}</td>
+	</tr>
+</table>
+</p>
+</div>
+<h3>Alternate best comfort Paths</h3>
+<div style="">
+
+<table border="1">
+	<tr>
+		<th>Alternative Paths</th>
+		<th>Comfort Score</th>
+	</tr>
+	<c:forEach items="${requestScope.path.comfortMap}" var="comfortcostResults" >
+		<tr>
+			<td>${comfortcostResults.key}</td>
+			<td>${comfortcostResults.value}</td>
+		</tr>
+	</c:forEach>
+</table>
+</div>
+<h3>Cheapest</h3>
+<div>
+<p>To be implemented</p>
+</div>
+</div>
         </section>
           </div>
     </div>
@@ -136,11 +166,8 @@
  
 
     <div class="large-5 columns">
-      <!-- Clicking this placeholder fires the mapModal Reveal modal -->
-      <p>
-        <a href="" data-reveal-id="mapModal"><img src="img/tripPlanner.jpg"></a><br />
-      </p>
-      
+    	<h5>Alternate best comfort path</h5>
+        <iframe src="http://localhost:8080/routePlanner/map.jsp" height="450px" width="450px"></iframe>
     </div>
     <!-- End Sidebar -->
   </div>
