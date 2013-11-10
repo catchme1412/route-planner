@@ -505,6 +505,56 @@ public class AStarRouting {
 		}
 		return totalDistanceCost;
 	}
+	
+	private static Double calculateComfortIndexNew(Path p) {
+		Relationship arrive = null;
+		Relationship depart = null;
+		int noOfTrains = 0;
+		double waitPeriod = 0;
+		
+		List<Relationship> relationshipList = new ArrayList<Relationship>();
+		for (Relationship r1 : p.relationships()) {
+			relationshipList.add(r1);
+		}
+		for (int i = 0; i < relationshipList.size() - 1; i++) {
+			arrive = relationshipList.get(i);
+			depart = relationshipList.get(i+1);
+			String arriveTrainNumber = arrive.getProperty("trainNumber").toString();
+			String departTrainNumber = depart.getProperty("trainNumber").toString();
+			System.out.println("============================");
+			System.out.println(arrive.getStartNode().getProperty("code") + ">" + arrive.getEndNode().getProperty("code") + " TR:" + arrive.getProperty("trainName"));
+			System.out.println(depart.getStartNode().getProperty("code") + ">" + depart.getEndNode().getProperty("code") + " TR:" + depart.getProperty("trainName"));
+//			// train change
+			if (!arriveTrainNumber.equals(departTrainNumber)) {
+				noOfTrains++;
+				String arriveTimeString = arrive.getProperty("trainArrival").toString();
+				String departureTimeString = depart.getProperty("trainDeparture").toString();
+				LocalTime arriveTime = LocalTime.parse(arriveTimeString);
+				LocalTime departureTime = LocalTime.parse(departureTimeString);
+				waitPeriod += Minutes.minutesBetween(arriveTime, departureTime).getMinutes();
+//				System.out.println(waitPeriod + " BOARDING PERIOD:" + arriveTimeString + "-" + departureTimeString + ":waiting:" + Minutes.minutesBetween(arriveTime, departureTime).getMinutes());
+////				if (Minutes.minutesBetween(arriveTime, departureTime).getMinutes() > 360) {
+////					return false;
+////				}
+//				if (departureTime.isAfter(arriveTime) ) {
+//					returnSomething = true;
+//				} else {
+//					
+//					if (arriveTime.isAfter(LocalTime.parse("20:00"))
+//							&& departureTime.isBefore(LocalTime.parse("02:00"))) {
+//						returnSomething = true;
+//					}
+//
+//				}
+			}
+			
+		}
+		if (noOfTrains == 0) {
+			return 0d;
+		}
+		
+		return .5 *waitPeriod/24*60 + .5* noOfTrains/10; 
+	}
 
 	private static Double calculateComfortIndex(Path m) {
 		Double totalComfortCost = 1D;
@@ -523,9 +573,9 @@ public class AStarRouting {
 					Date cd1 = format.parse(check1);
 					Date cd2 = format.parse(check2);
 
-//					if (date1.after(cd1) && date1.before(cd2)) {
-//						eveningConvinience = true;
-//					}
+					if (date1.after(cd1) && date1.before(cd2)) {
+						eveningConvinience = true;
+					}
 				} catch (ParseException e) {
 					// TODO Auto-generated catch block
 					e.printStackTrace();
@@ -898,7 +948,7 @@ public class AStarRouting {
 
 			Double singlePathTotalCost = calculateCost(path);
 			Double singlePathTotalDistance = calculateTotalDistance(path);
-			Double singlePathTotalComfortIndex = calculateComfortIndex(path);
+			Double singlePathTotalComfortIndex = calculateComfortIndexNew(path);
 			long singlePathDuration = calculateDuration(path);
 
 			StringBuffer singlePathActualTime = calculateRealTime(singlePathDuration);
@@ -970,8 +1020,6 @@ public class AStarRouting {
 		System.out.println("NNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNNN");
 		Relationship arrive = null;
 		Relationship depart = null;
-		boolean isFirst = true;
-		Relationship previousRelationShip;
 		List<Relationship> relationshipList = new ArrayList<Relationship>();
 		for (Relationship r1 : p.relationships()) {
 			relationshipList.add(r1);
@@ -994,19 +1042,18 @@ public class AStarRouting {
 //				if (Minutes.minutesBetween(arriveTime, departureTime).getMinutes() > 360) {
 //					return false;
 //				}
-				if (departureTime.isAfter(arriveTime) ) {
+				if (departureTime.isAfter(arriveTime)) {
+					returnSomething = true;
+				} else if (arriveTime.isAfter(LocalTime.parse("20:00"))
+						&& departureTime.isBefore(LocalTime.parse("02:00"))) {
 					returnSomething = true;
 				} else {
-					
-					if (arriveTime.isAfter(LocalTime.parse("20:00"))
-							&& departureTime.isBefore(LocalTime.parse("02:00"))) {
-						returnSomething = true;
-					}
-
+					return false;
 				}
 			}
 		}
-			
+		
+		
 		return returnSomething;
 	}
 

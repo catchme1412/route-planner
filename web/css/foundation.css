@@ -4678,3 +4678,9 @@ a.th {
 table {
 	font-size: 12px;
 }
+table th {
+	background-color: #ECF8FF;
+}
+body {
+	background-color: #13A7C7;
+}
